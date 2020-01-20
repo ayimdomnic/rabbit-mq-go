@@ -20,4 +20,18 @@ func init() {
 }
 
 // TODO::Organize http requests to the amqp server
+func main() {
+        http.HandleFunc("/exchange", ExchangeHandler)
+        http.HandleFunc("/queue/bind", QueueBindHandler)
+        http.HandleFunc("/queue", QueueHandler)
+        http.HandleFunc("/publish", PublishHandler)
+        // TODO::make these handler functions within the main class
 
+        // Start HTTP Server
+        log.Printf("server run %s (listen %s)\n", *address, *amqpUri)
+        err := http.ListenAndServe(*address, nil)
+
+        if err != nil {
+        	log.Fatal(err)
+        }
+}
