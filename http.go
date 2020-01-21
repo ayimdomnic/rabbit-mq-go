@@ -1,4 +1,4 @@
-package main;
+package main
 
 import (
         "encoding/json"
@@ -47,7 +47,7 @@ type QueueBindEntity struct {
 	Queue    string   `json:"queue"`
 	Exchange string   `json:"exchange"`
 	NoWait   bool     `json:"nowait"`
-	Keys     []string `json:"keys"` // bind/routing keys
+	Keys     []string `json:"keys"`
 }
 
 // RabbitMQ Operate Wrapper
@@ -154,6 +154,180 @@ func (r *RabbitMQ) Close() (err error) {
 		return err
 	}
 	return nil
+}
+
+func QueueHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" || r.Method == "DELETE" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		entity := new(QueueEntity)
+		if err = json.Unmarshal(body, entity); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rabbit := new(RabbitMQ)
+		if err = rabbit.Connect(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rabbit.Close()
+
+		if r.Method == "POST" {
+			if err = rabbit.DeclareQueue(entity.Name, entity.Durable, entity.AutoDelete, entity.Exclusive, entity.NoWait); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte("declare queue ok"))
+		} else if r.Method == "DELETE" {
+			if err = rabbit.DeleteQueue(entity.Name); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte("delete queue ok"))
+		}
+	} else if r.Method == "GET" {
+		r.ParseForm()
+
+		rabbit := new(RabbitMQ)
+		if err := rabbit.Connect(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rabbit.Close()
+
+		message := make(chan []byte)
+
+		for _, name := range r.Form["name"] {
+			if err := rabbit.ConsumeQueue(name, message); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		w.Write([]byte(""))
+		w.(http.Flusher).Flush()
+
+		for {
+			fmt.Fprintf(w, "%s\n", <-message)
+			w.(http.Flusher).Flush()
+		}
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func QueueBindHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" || r.Method == "DELETE" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		entity := new(QueueBindEntity)
+		if err = json.Unmarshal(body, entity); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rabbit := new(RabbitMQ)
+		if err = rabbit.Connect(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rabbit.Close()
+
+		if r.Method == "POST" {
+			if err = rabbit.BindQueue(entity.Queue, entity.Exchange, entity.Keys, entity.NoWait); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte("bind queue ok"))
+		} else if r.Method == "DELETE" {
+			if err = rabbit.UnBindQueue(entity.Queue, entity.Exchange, entity.Keys); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte("unbind queue ok"))
+		}
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func PublishHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		entity := new(MessageEntity)
+		if err = json.Unmarshal(body, entity); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rabbit := new(RabbitMQ)
+		if err = rabbit.Connect(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rabbit.Close()
+
+		if err = rabbit.Publish(entity.Exchange, entity.Key, entity.DeliveryMode, entity.Priority, entity.Body); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write([]byte("publish message ok"))
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
+}
+
+func ExchangeHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" || r.Method == "DELETE" {
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		entity := new(ExchangeEntity)
+		if err = json.Unmarshal(body, entity); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		rabbit := new(RabbitMQ)
+		if err = rabbit.Connect(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer rabbit.Close()
+
+		if r.Method == "POST" {
+			if err = rabbit.DeclareExchange(entity.Name, entity.Type, entity.Durable, entity.AutoDelete, entity.NoWait); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte("declare exchange ok"))
+		} else if r.Method == "DELETE" {
+			if err = rabbit.DeleteExchange(entity.Name); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			w.Write([]byte("delete exchange ok"))
+		}
+	} else {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+	}
 }
 
 // TODO::Organize http requests to the amqp server
