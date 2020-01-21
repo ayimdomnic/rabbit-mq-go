@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-        flag.parse()
+        flag.Parse()
 }
 
 type MessageEntity struct {
