@@ -57,6 +57,21 @@ type RabbitMQ struct {
 	done    chan error
 }
 
+func (r *RabbitMQ) Connect() (*RabbitMQ, error) {
+	// if we alredy connected do not re-connect
+	if r.conn != nil {
+		return r, nil
+	}
+
+	// r.Dial sets the conn variable
+	if err := r.Dial(); err != nil {
+		return nil, err
+	}
+
+	return r, nil
+}
+
+
 func (r *RabbitMQ) Publish(exchange, key string, deliverymode, priority uint8, body string) (err error) {
 	err = r.channel.Publish(exchange, key, false, false,
 		amqp.Publishing{
