@@ -11,7 +11,7 @@ import (
 )
 
 var (
-        address = flag.String("address", "bind host:port")
+        address = flag.String("address", "bind host:port", "")
         amqpUri = flag.String("amqp", "amqp://guest:guest@127.0.0.1:5672/", "amqp uri")
 )
 
@@ -132,6 +132,7 @@ func (r *RabbitMQ) UnBindQueue(queue, exchange string, keys []string) (err error
 	return nil
 }
 
+//ConsumeQueue
 func (r *RabbitMQ) ConsumeQueue(queue string, message chan []byte) (err error) {
 	deliveries, err := r.channel.Consume(queue, "", true, false, false, false, nil)
 	if err != nil {
@@ -155,6 +156,7 @@ func (r *RabbitMQ) Close() (err error) {
 	}
 	return nil
 }
+
 
 func QueueHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" || r.Method == "DELETE" {
